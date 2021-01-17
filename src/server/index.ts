@@ -50,7 +50,7 @@ export default class Server extends Interface {
     
     console.log(socket.remotePort)
 
-    const channel: Channel = <Channel>socket
+    const channel: Channel = socket as Channel
 
     socket.on('error', (e) => {   
       if (e.code === 'ECONNRESET') {

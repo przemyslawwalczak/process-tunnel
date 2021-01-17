@@ -33,7 +33,7 @@ export default class Interface {
     }
   }
 
-  async map(name: string, array: Array<any>, handler?: Function) {
+  async map(name: string, array: any[], handler?: Function) {
     if (!this.exclusive && cluster.isWorker) {
       const message = new QueuedMessage(ChannelType.MAP, name, array)
 

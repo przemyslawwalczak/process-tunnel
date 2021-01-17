@@ -68,7 +68,7 @@ export default class Client {
           socket.destroy(e)
         })
 
-        const channel: Channel = <Channel>socket
+        const channel: Channel = socket as Channel
 
         console.log('SecureConnection:', channel.remotePort, channel.localPort)
 
