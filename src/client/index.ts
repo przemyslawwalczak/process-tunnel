@@ -47,17 +47,40 @@ export default class Client {
     const socket = tls.connect(options)
 
     return new Promise((resolve, reject) => {
-      socket.on('error', (e) => {
+      const onListenError = (e: any) => {
+        console.log(e)
+
         reject(e)
-      })
+      }
+
+      socket.once('error', onListenError)
       
       socket.on('secureConnect', () => {
+        socket.removeListener('error', onListenError)
+
+        socket.on('error', (e) => {
+          if (e.code === 'ECONNRESET') {
+            console.log('connection resetted')
+            return
+          }
+
+          console.log('UncaughtSecureSocketError:', e)
+          socket.destroy(e)
+        })
+
         const channel: Channel = <Channel>socket
+
+        console.log('SecureConnection:', channel.remotePort, channel.localPort)
 
         channel.type = type
         channel.name = name
 
         channel.queue = new RemoteQueue(channel)
+
+        socket.on('close', () => {
+          channel.queue.destroy()
+          socket.destroy()
+        })
         
         channel.queue.send(MessageType.ACK, { type, name })
         .then(() => resolve(channel))
@@ -90,6 +113,7 @@ export default class Client {
         ref.then((result: any[] = []) => {
           channel.queue.callback(callback, result)
         })
+        .catch((e: any) => channel.queue.error(callback, e))
         .catch((e: any) => channel.destroy(e))
       })
     })

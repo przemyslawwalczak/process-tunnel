@@ -29,9 +29,9 @@ if (cluster.isMaster) {
   .listen(8082, 'localhost')
   .then((server) => {
     console.log(server.address())
+    const array = [{ id: 0 }, { id: 1 }, { id: 3}]
 
     setInterval(() => {
-      const array = [50, 60, 70]
 
       server.map('hello.world', array)
       .then(result => {

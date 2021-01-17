@@ -5,6 +5,7 @@ import { certStringToBuffer } from '../common'
 import { ChannelType, QueuedMessage, Channel } from '../interface/queued-message'
 import { RemoteQueue } from '../remote-queue'
 import Interface from '../interface'
+import { clear } from 'console'
 
 export default class Server extends Interface {
   private endpoint: tls.Server
@@ -46,20 +47,60 @@ export default class Server extends Interface {
     if (!socket.authorized) {
       return socket.destroy()
     }
+    
+    console.log(socket.remotePort)
 
-    const channel: any = socket
+    const channel: Channel = <Channel>socket
 
-    socket.on('error', (e) => {
-      console.log(e)
+    socket.on('error', (e) => {   
+      if (e.code === 'ECONNRESET') {
+        return
+      }
+
+      console.log(e.message)
+
+      socket.unpipe()
+      socket.destroy()
     })
 
     socket.on('close', () => {
-      this.process.splice(this.process.indexOf(channel), 1)
+      if (channel.queue) {
+        channel.queue.destroy()
+      }
+
+      console.log('index of channel:', this.process.indexOf(channel))
+
+      const index = this.process.indexOf(channel)
+
+      if (index === -1) {
+        return
+      }
+
+      this.process.splice(index, 1)
+
+      socket.unpipe()
+      socket.destroy()
+
+      console.log(`Channel closed: ${channel.name} (${channel.type})`)
     })
 
     channel.queue = new RemoteQueue(channel)
 
     channel.once('approved', (type: ChannelType, name: string) => {
+      let result: Channel | null = null
+
+      this.process.map((channel) => {
+        console.log('channel name:', channel.name, channel.type)
+
+        if (channel.name && channel.name === name && channel.type === type) {
+          result = channel
+        }
+      })
+
+      if (result) {
+        return channel.destroy(new Error(`Unique channels only required`))
+      }
+
       channel.type = type
       channel.name = name
 
@@ -107,6 +148,10 @@ export default class Server extends Interface {
           return console.log('callback not found')
         }
 
+        if (message.error) {
+          return result.reject(new Error(message.error))
+        }
+
         result.resolve(message.result)
       })
 
@@ -122,15 +167,12 @@ export default class Server extends Interface {
     this.endpoint.setSecureContext(this.context)
 
     cluster.on('online', (thread) => {
-      console.log('online:', thread.process.pid)
-
       thread.once('disconnect', () => {
-        console.log('thread disconnected')
+        thread.removeAllListeners('REQ')
+        thread.removeAllListeners('ACK')
       })
 
       thread.on('message', (message) => {
-        // TODO: Make sure we are interested in this message
-
         if (typeof message !== 'object') {
           return
         }
@@ -164,16 +206,41 @@ export default class Server extends Interface {
             default: return reject(new Error(`ChannelType: ${message.type} not handled`))
           }
 
-          const handler = (id: string, result: any) => {
+          const timeout = setTimeout(() => {
+            channel?.removeListener('REQ', reqHandler)
+            channel?.removeListener('ERR', errHandler)
+
+            reject(new Error(`Request (${callback}) timedout on response`))
+          }, 3000)
+
+          const reqHandler = (id: string, result: any) => {
             if (id !== callback) {
               return
             }
 
-            channel?.removeListener('REQ', handler)
+            clearTimeout(timeout)
+
+            channel?.removeListener('REQ', reqHandler)
+            channel?.removeListener('ERR', errHandler)
+
             resolve(result)
           }
 
-          channel.on('REQ', handler)
+          const errHandler = (id: string, result: any) => {
+            if (id !== callback) {
+              return
+            }
+
+            clearTimeout(timeout)
+
+            channel?.removeListener('REQ', reqHandler)
+            channel?.removeListener('ERR', errHandler)
+
+            reject(new Error(result.error))
+          }
+
+          channel.on('REQ', reqHandler)
+          channel.on('ERR', errHandler)
         })
         .then(async result => {
           thread.send({ callback, result })
@@ -194,6 +261,10 @@ export default class Server extends Interface {
       })
 
       this.endpoint?.once('listening', () => {
+        this.endpoint.on('error', (e) => {
+          console.log('server error:', e.name)
+        })
+
         resolve(this)
       })
 

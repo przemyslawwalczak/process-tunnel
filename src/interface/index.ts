@@ -31,8 +31,6 @@ export default class Interface {
         return message.promise
       }
     }
-
-    return args
   }
 
   async map(name: string, array: Array<any>, handler?: Function) {
@@ -49,7 +47,5 @@ export default class Interface {
         return message.promise
       }
     }
-
-    return array
   }
 }

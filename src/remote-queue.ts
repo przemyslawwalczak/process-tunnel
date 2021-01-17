@@ -4,6 +4,7 @@ import { TypedWritableStream } from "./typed-writable-stream"
 
 export class RemoteQueue {
   public compiler: TypedWritableStream
+  private parser: TypedReadableStream
 
   private channel: Channel
   private approved: boolean = false
@@ -11,7 +12,7 @@ export class RemoteQueue {
   constructor(channel: Channel) {
     this.channel = channel
     this.compiler = new TypedWritableStream(channel)
-    new TypedReadableStream(channel, this)
+    this.parser = new TypedReadableStream(channel, this)
   }
 
   approve(type: ChannelType, name: string) {
@@ -21,6 +22,13 @@ export class RemoteQueue {
 
     this.approved = true
     this.channel.emit('approved', type, name)
+  }
+
+  error(id: string, e: any) {
+    this.compiler.writeType(MessageType.ERR)
+    this.compiler.writeCallback(id)
+    this.compiler.writeJSON({ error: e.message, code: e.code })
+    this.compiler.flush()
   }
 
   callback(id: string, args: any[] = []) {
@@ -34,5 +42,10 @@ export class RemoteQueue {
     this.compiler.writeType(type)
     this.compiler.writeJSON(data)
     this.compiler.flush()
+  }
+
+  destroy() {
+    this.compiler.destroy()
+    this.parser.destroy()
   }
 }

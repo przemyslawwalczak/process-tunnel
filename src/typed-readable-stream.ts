@@ -4,9 +4,11 @@ import { RemoteQueue } from "./remote-queue"
 const Dissolve = require('dissolve')
 
 export class TypedReadableStream {
-  private stream: any = new Dissolve()
+  private stream: any
 
   constructor(channel: Channel, queue: RemoteQueue) {
+    this.stream = new Dissolve()
+
     this.stream.loop(() => {
       this.stream.int8('type')
       .tap(() => {
@@ -16,6 +18,11 @@ export class TypedReadableStream {
           } break
 
           case MessageType.REQ: {
+            this.stream.string('callback', 36)
+            this.stream.int32('length')
+          } break
+
+          case MessageType.ERR: {
             this.stream.string('callback', 36)
             this.stream.int32('length')
           } break
@@ -35,6 +42,8 @@ export class TypedReadableStream {
     this.stream.on('readable', () => {
       let packet
       while (packet = this.stream.read()) {
+        console.log(packet)
+
         switch (packet.type) {
           case MessageType.ACK: {
             queue.approve(packet.args.type, packet.args.name)
@@ -44,11 +53,19 @@ export class TypedReadableStream {
             channel.emit('REQ', packet.callback, packet.args)
           } break
 
-          default: this.stream.destroy(`Unhandled MessageType (${packet.type})`)
+          case MessageType.ERR: {
+            channel.emit('ERR', packet.callback, packet.args)
+          } break
+
+          default: channel.destroy(new Error(`Unhandled MessageType (${packet.type})`))
         }
       }
     })
 
     channel.pipe(this.stream)
+  }
+
+  destroy() {
+    this.stream.end()
   }
 }

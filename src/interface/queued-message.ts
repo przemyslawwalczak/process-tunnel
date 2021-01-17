@@ -11,7 +11,8 @@ export enum ChannelType {
 }
 export enum MessageType {
   ACK,
-  REQ
+  REQ,
+  ERR
 }
 
 export interface Channel extends tls.TLSSocket {
@@ -53,8 +54,35 @@ export class QueuedMessage {
   resolve(result: any) {
     const callback = this.pop()
 
-    if (!this._resolve) {
+    if (!this._resolve || !this._reject) {
       throw new Error('Invalid callback')
+    }
+
+    console.log('resolved result:', result, this.args)
+
+    switch (this.type) {
+      case ChannelType.MAP: {
+        if (!Array.isArray(result)) {
+          console.log(`DEBUG: WARNING: ChannelType.MAP Requires a result array`)
+          
+          return this._resolve(this.args)
+        }
+
+        for (let index in this.args) {
+          const current = this.args[index]
+          const value = result[index]
+
+          if (typeof value === 'object' && typeof this.args[index] === 'object') {
+            // TODO: Use loadash deep merge, but we will do shallow merge for now
+            Object.assign(current, value)
+            continue
+          }
+
+          this.args[index] = value
+        }
+
+        return this._resolve(this.args)
+      }
     }
 
     return this._resolve(result)

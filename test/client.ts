@@ -25,5 +25,7 @@ client.call('test', async (arg, arg2, arg3) => {
 client.map('hello.world', async (value, index, array) => {
   console.log('mapping value:', value, index, array)
 
-  return 6
+  // throw new Error('DEBUG')
+
+  return { alive: false }
 })

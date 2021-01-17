@@ -32,4 +32,8 @@ export class TypedWritableStream {
   flush() {
     this.stream.flush()
   }
+
+  destroy() {
+    this.stream.destroy()
+  }
 }

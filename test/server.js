@@ -27,8 +27,8 @@ else {
         .listen(8082, 'localhost')
         .then(function (server) {
         console.log(server.address());
+        var array = [{ id: 0 }, { id: 1 }, { id: 3 }];
         setInterval(function () {
-            var array = [50, 60, 70];
             server.map('hello.world', array)
                 .then(function (result) {
                 console.log('returned result:', result);

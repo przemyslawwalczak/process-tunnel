@@ -59,6 +59,7 @@ client.call('test', function (arg, arg2, arg3) { return __awaiter(void 0, void 0
 client.map('hello.world', function (value, index, array) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         console.log('mapping value:', value, index, array);
-        return [2 /*return*/, 6];
+        // throw new Error('DEBUG')
+        return [2 /*return*/, { alive: false }];
     });
 }); });
