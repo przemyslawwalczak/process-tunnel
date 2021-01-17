@@ -1,6 +1,6 @@
 {
   "name": "process-tunnel",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "process-tunnel",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
