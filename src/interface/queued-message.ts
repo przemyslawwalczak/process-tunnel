@@ -19,6 +19,7 @@ export interface Channel extends tls.TLSSocket {
   type: ChannelType
   name: string
   queue: RemoteQueue
+  prefix?: string
 }
 
 

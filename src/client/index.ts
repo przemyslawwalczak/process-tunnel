@@ -15,10 +15,13 @@ export default class Client {
   private host: string
   private context: tls.SecureContextOptions = {}
   private timeout: NodeJS.Timeout | null = null
+  private prefix?: string
 
-  constructor(port: number, host: string) {
+  constructor(port: number, host: string, prefix?: string) {
     this.port = port
     this.host = host
+
+    this.prefix = prefix
   }
 
   setContext(context: tls.SecureContextOptions) {
@@ -32,7 +35,8 @@ export default class Client {
   }
 
   checkServerIdentity(host: string, cert: tls.PeerCertificate): Error | undefined {
-    console.log('checking server identity:', host)
+    // NOTE: Removed this handler for now, extendable if needed
+    // We trust our host :) (unsecure, but simple for now)
 
     return undefined
   }
@@ -75,8 +79,8 @@ export default class Client {
           channel.queue.destroy()
           socket.destroy()
         })
-        
-        channel.queue.send(MessageType.ACK, { type, name })
+
+        channel.queue.send(MessageType.ACK, { type, name: name, prefix: this.prefix })
         .then(() => {
           resolve(channel)
         })
@@ -108,8 +112,6 @@ export default class Client {
   }
 
   map(name: string, handler: Function) {
-    console.log('binding .map handler')
-
     const chain: any[] = []
 
     this.establishChannelConnection(ChannelType.MAP, name)
@@ -157,8 +159,6 @@ export default class Client {
   }
   
   call(name: string, handler: Function) {
-    console.log('binding .call handler')
-
     const chain: any[] = []
 
     this.establishChannelConnection(ChannelType.MAP, name)

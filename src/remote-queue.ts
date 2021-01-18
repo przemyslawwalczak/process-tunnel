@@ -15,13 +15,13 @@ export class RemoteQueue {
     this.parser = new TypedReadableStream(channel, this)
   }
 
-  approve(type: ChannelType, name: string) {
+  approve(type: ChannelType, name: string, prefix?: string) {
     if (this.approved) {
       return console.log('Warning! Channel already approved')
     }
 
     this.approved = true
-    this.channel.emit('approved', type, name)
+    this.channel.emit('approved', type, name, prefix)
   }
 
   error(id: string, e: any) {

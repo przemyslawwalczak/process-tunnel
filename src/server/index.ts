@@ -82,13 +82,13 @@ export default class Server extends Interface {
 
     channel.queue = new RemoteQueue(channel)
 
-    channel.once('approved', (type: ChannelType, name: string) => {
+    channel.once('approved', (type: ChannelType, name: string, prefix?: string) => {
       let result: Channel | null = null
 
       this.process.map((channel) => {
-        console.log('channel name:', channel.name, channel.type)
+        console.log('channel name:', channel.name, channel.type, channel.prefix)
 
-        if (channel.name && channel.name === name && channel.type === type) {
+        if (channel.name && channel.name === name && channel.type === type && channel.prefix === prefix) {
           result = channel
         }
       })
@@ -99,6 +99,7 @@ export default class Server extends Interface {
 
       channel.type = type
       channel.name = name
+      channel.prefix = prefix
 
       this.process.push(channel)
     })

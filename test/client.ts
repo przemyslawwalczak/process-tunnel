@@ -1,7 +1,7 @@
 import * as Tunnel from '../lib'
 import * as path from 'path'
 
-const client = new Tunnel.Client(8082, 'localhost')
+const client = new Tunnel.Client(8082, 'localhost', 'tg')
 .setContext({
   ca: [path.join(process.cwd(), 'ssl', 'cert.pem')],
   cert: path.join(process.cwd(), 'ssl', 'cert.pem'),
