@@ -46,7 +46,7 @@ export class TypedReadableStream {
 
         switch (packet.type) {
           case MessageType.ACK: {
-            queue.approve(packet.args.type, packet.args.name)
+            queue.approve(packet.args.type, packet.args.name, packet.args.prefix)
           } break
 
           case MessageType.REQ: {

@@ -77,7 +77,7 @@ export default class Server extends Interface {
       socket.unpipe()
       socket.destroy()
 
-      console.log(`Channel closed: ${channel.name} (${channel.type})`)
+      console.log(`Channel closed: ${channel.name} (${channel.type}) #${channel.prefix}`)
     })
 
     channel.queue = new RemoteQueue(channel)
@@ -86,8 +86,6 @@ export default class Server extends Interface {
       let result: Channel | null = null
 
       this.process.map((channel) => {
-        console.log('channel name:', channel.name, channel.type, channel.prefix)
-
         if (channel.name && channel.name === name && channel.type === type && channel.prefix === prefix) {
           result = channel
         }
@@ -184,60 +182,101 @@ export default class Server extends Interface {
 
         delete message.callback
 
-        let channel: Channel | null = null
+        let channels: Channel[] = []
 
         for (let result of this.process) {
-          if (result.name === message.name && result.type === message.type) {
-            channel = result
+          if (
+            (result.name === message.name && result.type === message.type && (!message.prefix || message.prefix === result.prefix))
+          ) {
+            channels.push(result)
           }
         }
 
-        new Promise((resolve, reject) => {
-          if (!channel) {
+        new Promise((_resolve, _reject) => {
+          let resolved = false
+
+          const resolve = (result: any) => {
+            if (resolved) {
+              return
+            }
+
+            resolved = true
+            clearTimeout(timeout)
+
+            _resolve(result)
+          }
+
+          const reject = (e: any) => {
+            if (resolved) {
+              return
+            }
+
+            resolved = true
+            clearTimeout(timeout)
+
+            _reject(e)
+          }
+
+          if (!channels.length) {
             return resolve(null)
           }
 
-          switch (message.type) {
-            case ChannelType.MAP:
-            case ChannelType.CALL: channel.queue.callback(callback, message.args); break
-            default: return reject(new Error(`ChannelType: ${message.type} not handled`))
-          }
-
           const timeout = setTimeout(() => {
-            channel?.removeListener('REQ', reqHandler)
-            channel?.removeListener('ERR', errHandler)
-
             reject(new Error(`Request (${callback}) timedout on response`))
           }, 3000)
 
-          const reqHandler = (id: string, result: any) => {
-            if (id !== callback) {
-              return
+          Promise.all(
+            channels.map(async channel =>
+              new Promise((_resolve, _reject) => {
+                const resolve = (result: any) => {
+                  channel?.removeListener('REQ', reqHandler)
+                  channel?.removeListener('ERR', errHandler)
+
+                  _resolve(result)
+                }
+      
+                const reject = (e: any) => {
+                  channel?.removeListener('REQ', reqHandler)
+                  channel?.removeListener('ERR', errHandler)
+      
+                  _reject(e)
+                }
+
+                switch (message.type) {
+                  case ChannelType.MAP:
+                  case ChannelType.CALL: channel.queue.callback(callback, message.args); break
+                  default: return reject(new Error(`ChannelType: ${message.type} not handled`))
+                }
+
+                const reqHandler = (id: string, result: any) => {
+                  if (id !== callback) {
+                    return
+                  }
+
+                  resolve(result)
+                }
+
+                const errHandler = (id: string, result: any) => {
+                  if (id !== callback) {
+                    return
+                  }
+
+                  reject(new Error(result.error))
+                }
+
+                channel.on('REQ', reqHandler)
+                channel.on('ERR', errHandler)
+              })
+            )
+          )
+          .then((result: any[]) => {
+            if (channels.length === 1) {
+              resolve(result[0])
+            } else {
+              resolve(result)
             }
-
-            clearTimeout(timeout)
-
-            channel?.removeListener('REQ', reqHandler)
-            channel?.removeListener('ERR', errHandler)
-
-            resolve(result)
-          }
-
-          const errHandler = (id: string, result: any) => {
-            if (id !== callback) {
-              return
-            }
-
-            clearTimeout(timeout)
-
-            channel?.removeListener('REQ', reqHandler)
-            channel?.removeListener('ERR', errHandler)
-
-            reject(new Error(result.error))
-          }
-
-          channel.on('REQ', reqHandler)
-          channel.on('ERR', errHandler)
+          })
+          .catch(reject)
         })
         .then(async result => {
           thread.send({ callback, result })

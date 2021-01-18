@@ -20,6 +20,8 @@ export class RemoteQueue {
       return console.log('Warning! Channel already approved')
     }
 
+    console.log('approve:', name, prefix)
+
     this.approved = true
     this.channel.emit('approved', type, name, prefix)
   }

@@ -1,7 +1,7 @@
 import * as Tunnel from '../lib'
 import * as path from 'path'
 
-const client = new Tunnel.Client(8082, 'localhost', 'tg')
+const client = new Tunnel.Client(8082, 'localhost', 'tg2')
 .setContext({
   ca: [path.join(process.cwd(), 'ssl', 'cert.pem')],
   cert: path.join(process.cwd(), 'ssl', 'cert.pem'),
@@ -25,7 +25,11 @@ client.call('test', async (arg, arg2, arg3) => {
 client.map('hello.world', async (value, index, array) => {
   console.log('mapping value:', value, index, array)
 
+  await new Promise((resolve) => {
+    setTimeout(() => resolve(0), 1000)
+  })
+
   // throw new Error('DEBUG')
 
-  return { alive: false }
+  return { alive: true }
 })

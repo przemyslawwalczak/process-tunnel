@@ -38,7 +38,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 exports.__esModule = true;
 var Tunnel = require("../lib");
 var path = require("path");
-var client = new Tunnel.Client(8082, 'localhost', 'tg')
+var client = new Tunnel.Client(8082, 'localhost', 'tg2')
     .setContext({
     ca: [path.join(process.cwd(), 'ssl', 'cert.pem')],
     cert: path.join(process.cwd(), 'ssl', 'cert.pem'),
@@ -58,8 +58,18 @@ client.call('test', function (arg, arg2, arg3) { return __awaiter(void 0, void 0
 });
 client.map('hello.world', function (value, index, array) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        console.log('mapping value:', value, index, array);
-        // throw new Error('DEBUG')
-        return [2 /*return*/, { alive: false }];
+        switch (_a.label) {
+            case 0:
+                console.log('mapping value:', value, index, array);
+                return [4 /*yield*/, new Promise(function (resolve) {
+                        setTimeout(function () { return resolve(0); }, 1000);
+                    })
+                    // throw new Error('DEBUG')
+                ];
+            case 1:
+                _a.sent();
+                // throw new Error('DEBUG')
+                return [2 /*return*/, { alive: true }];
+        }
     });
 }); });

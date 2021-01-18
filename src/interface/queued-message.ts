@@ -64,8 +64,6 @@ export class QueuedMessage {
       throw new Error('Invalid callback')
     }
 
-    console.log('resolved result:', result, this.args)
-
     switch (this.type) {
       case ChannelType.MAP: {
         if (!Array.isArray(result)) {
@@ -86,20 +84,7 @@ export class QueuedMessage {
           .catch((e) => reject.call(this, e))
         }
 
-        for (let index in this.args) {
-          const current = this.args[index]
-          const value = result[index]
-
-          if (typeof value === 'object' && typeof this.args[index] === 'object') {
-            // TODO: Use loadash deep merge, but we will do shallow merge for now
-            Object.assign(current, value)
-            continue
-          }
-
-          this.args[index] = value
-        }
-
-        return this._resolve(this.args)
+        return this._resolve(result)
       }
     }
 

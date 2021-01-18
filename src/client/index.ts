@@ -65,7 +65,7 @@ export default class Client {
         socket.on('error', (e) => {
           if (e.code === 'ECONNRESET') return
           console.error('UncaughtSecureSocketError:', e)
-          socket.destroy()
+          socket.destroy(e)
         })
 
         const channel: Channel = socket as Channel
@@ -77,7 +77,6 @@ export default class Client {
 
         socket.on('close', () => {
           channel.queue.destroy()
-          socket.destroy()
         })
 
         channel.queue.send(MessageType.ACK, { type, name: name, prefix: this.prefix })
@@ -96,13 +95,21 @@ export default class Client {
       this.connect(type, name)
       .then(channel => {
         channel.once('close', () => {
-          connection.emit('connect', type, name)
+          clearTimeout(this.timeout as NodeJS.Timeout)
+
+          this.timeout = setTimeout(() => {
+            connection.emit('connect', type, name)
+          }, 10000)
         })
 
         connection.emit('channel', channel)
       })
       .catch(e => {
-        connection.emit('connect', type, name)
+        clearTimeout(this.timeout as NodeJS.Timeout)
+
+        this.timeout = setTimeout(() => {
+          connection.emit('connect', type, name)
+        }, 10000)
       })
     })
 
@@ -117,12 +124,12 @@ export default class Client {
     this.establishChannelConnection(ChannelType.MAP, name)
     .on('channel', (channel: Channel) => {
       channel.on('REQ', (callback: string, array: any[]) => {
-        let ref = Promise.all(array.map(async (value, index) => {
-          return await Promise.resolve(handler.call(this, value, index, array))
+        // NOTE: Promise.all is concurrent!
+        let ref = Promise.all(array.map(async (value, index) => Promise.resolve(handler.call(this, value, index, array))
           .then((result = value) => {
             return array[index] = result
           })
-        }))
+        ))
 
         chain.map((chain) => {
           switch (chain.type) {
