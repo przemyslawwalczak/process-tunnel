@@ -2,6 +2,7 @@ import * as tls from 'tls'
 import { certStringToBuffer } from '../common'
 import { ChannelType, Channel, MessageType } from '../interface/queued-message'
 import { RemoteQueue } from '../remote-queue'
+import * as EventEmitter from 'events'
 
 type PromiseChain = {
   then(callback: Function): PromiseChain
@@ -13,6 +14,7 @@ export default class Client {
   private port: number
   private host: string
   private context: tls.SecureContextOptions = {}
+  private timeout: NodeJS.Timeout | null = null
 
   constructor(port: number, host: string) {
     this.port = port
@@ -35,7 +37,7 @@ export default class Client {
     return undefined
   }
 
-  private async establishChannelConnection(type: ChannelType, name: string): Promise<Channel> {  
+  private async connect(type: ChannelType, name: string): Promise<Channel> {
     const options: tls.ConnectionOptions = {
       host: this.host,
       port: this.port,
@@ -47,30 +49,22 @@ export default class Client {
     const socket = tls.connect(options)
 
     return new Promise((resolve, reject) => {
-      const onListenError = (e: any) => {
-        console.log(e)
-
-        reject(e)
-      }
+      const onListenError = (e: any) => reject(e)
 
       socket.once('error', onListenError)
       
       socket.on('secureConnect', () => {
+        clearTimeout(this.timeout as NodeJS.Timeout)
+
         socket.removeListener('error', onListenError)
 
         socket.on('error', (e) => {
-          if (e.code === 'ECONNRESET') {
-            console.log('connection resetted')
-            return
-          }
-
-          console.log('UncaughtSecureSocketError:', e)
-          socket.destroy(e)
+          if (e.code === 'ECONNRESET') return
+          console.error('UncaughtSecureSocketError:', e)
+          socket.destroy()
         })
 
         const channel: Channel = socket as Channel
-
-        console.log('SecureConnection:', channel.remotePort, channel.localPort)
 
         channel.type = type
         channel.name = name
@@ -83,17 +77,43 @@ export default class Client {
         })
         
         channel.queue.send(MessageType.ACK, { type, name })
-        .then(() => resolve(channel))
+        .then(() => {
+          resolve(channel)
+        })
         .catch(reject)
       })
     })
   }
 
+  private establishChannelConnection(type: ChannelType, name: string) {
+    const connection = new EventEmitter()
+
+    connection.on('connect', (type: ChannelType, name: string) => {
+      this.connect(type, name)
+      .then(channel => {
+        channel.once('close', () => {
+          connection.emit('connect', type, name)
+        })
+
+        connection.emit('channel', channel)
+      })
+      .catch(e => {
+        connection.emit('connect', type, name)
+      })
+    })
+
+    connection.emit('connect', type, name)
+
+    return connection
+  }
+
   map(name: string, handler: Function) {
+    console.log('binding .map handler')
+
     const chain: any[] = []
 
     this.establishChannelConnection(ChannelType.MAP, name)
-    .then(async channel => {
+    .on('channel', (channel: Channel) => {
       channel.on('REQ', (callback: string, array: any[]) => {
         let ref = Promise.all(array.map(async (value, index) => {
           return await Promise.resolve(handler.call(this, value, index, array))
@@ -137,10 +157,12 @@ export default class Client {
   }
   
   call(name: string, handler: Function) {
+    console.log('binding .call handler')
+
     const chain: any[] = []
 
-    this.establishChannelConnection(ChannelType.CALL, name)
-    .then(async channel => {
+    this.establishChannelConnection(ChannelType.MAP, name)
+    .on('channel', (channel: Channel) => {
       channel.on('REQ', (callback: string, args: any[]) => {
         let ref = Promise.resolve(handler.apply(this, args))
 

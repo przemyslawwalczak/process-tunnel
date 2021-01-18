@@ -48,8 +48,6 @@ export default class Server extends Interface {
       return socket.destroy()
     }
     
-    console.log(socket.remotePort)
-
     const channel: Channel = socket as Channel
 
     socket.on('error', (e) => {   
@@ -57,7 +55,7 @@ export default class Server extends Interface {
         return
       }
 
-      console.log(e.message)
+      console.log('SecureSocketError:', e.message)
 
       socket.unpipe()
       socket.destroy()
@@ -67,8 +65,6 @@ export default class Server extends Interface {
       if (channel.queue) {
         channel.queue.destroy()
       }
-
-      console.log('index of channel:', this.process.indexOf(channel))
 
       const index = this.process.indexOf(channel)
 

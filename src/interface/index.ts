@@ -37,6 +37,8 @@ export default class Interface {
     if (!this.exclusive && cluster.isWorker) {
       const message = new QueuedMessage(ChannelType.MAP, name, array)
 
+      message.setHandler(handler)
+
       if (process.send) {
         process.send(message.toJSON(this), (e: any) => {
           if (e) return message.reject(e)

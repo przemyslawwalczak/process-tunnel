@@ -32,6 +32,7 @@ export class QueuedMessage {
   private args: any[]
   private _queue: Queue
   public timeout: NodeJS.Timeout | null = null
+  private handler?: Function
 
   constructor(type: ChannelType, name: string, args: any[]) {
     this.type = type
@@ -51,6 +52,10 @@ export class QueuedMessage {
     })
   }
 
+  setHandler(handler?: Function) {
+    this.handler = handler
+  }
+
   resolve(result: any) {
     const callback = this.pop()
 
@@ -64,8 +69,20 @@ export class QueuedMessage {
       case ChannelType.MAP: {
         if (!Array.isArray(result)) {
           console.log(`DEBUG: WARNING: ChannelType.MAP Requires a result array`)
-          
+
           return this._resolve(this.args)
+        }
+
+        if (this.handler && typeof this.handler === 'function') {
+          const handler = this.handler
+          const resolve = this._resolve
+          const reject = this._reject
+
+          return Promise.all(this.args.map(async (value: any, index: number) => {
+            await Promise.resolve(handler(value, result[index]))
+          }))
+          .then(() => resolve.call(this, this.args))
+          .catch((e) => reject.call(this, e))
         }
 
         for (let index in this.args) {
