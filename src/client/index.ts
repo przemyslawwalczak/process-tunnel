@@ -168,7 +168,7 @@ export default class Client {
   call(name: string, handler: Function) {
     const chain: any[] = []
 
-    this.establishChannelConnection(ChannelType.MAP, name)
+    this.establishChannelConnection(ChannelType.CALL, name)
     .on('channel', (channel: Channel) => {
       channel.on('REQ', (callback: string, args: any[]) => {
         let ref = Promise.resolve(handler.apply(this, args))
